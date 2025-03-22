@@ -1,9 +1,10 @@
 import os
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app, send_from_directory
 from werkzeug.utils import secure_filename
 from app.services.adresse_service import AdresseService
 from app.services.organisme_service import OrganismeService
 from app.services.import_service import ImportService
+from app.services.export_service import ExportService
 
 bp = Blueprint('main', __name__)
 
@@ -17,10 +18,10 @@ def index():
     """Page d'accueil"""
     return render_template('index.html')
 
-# Route d'importation unifiée
+# Route d'importation unifiée avec génération de rapport
 @bp.route('/import', methods=['GET', 'POST'])
 def import_data():
-    """Importation de données depuis un fichier ZIP"""
+    """Importation et validation de données depuis un fichier ZIP avec génération de rapport"""
     if request.method == 'POST':
         # Vérifier si un fichier a été soumis
         if 'file' not in request.files:
@@ -44,7 +45,12 @@ def import_data():
             # Importer les données
             result = ImportService.import_from_file(file_path)
             
-            # Supprimer le fichier temporaire
+            # Générer le rapport de validation
+            export_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'reports')
+            report_path = ExportService.generate_validation_report(result, export_dir)
+            report_filename = os.path.basename(report_path)
+            
+            # Supprimer le fichier d'import temporaire
             os.remove(file_path)
             
             # Gérer le résultat
@@ -56,7 +62,8 @@ def import_data():
                     status_class = 'success' if table_result.get('success') else 'warning'
                     flash(f"Table {table_result.get('table')}: {table_result.get('message')}", status_class)
                 
-                return redirect(url_for('main.index'))
+                # Rediriger vers la page d'importation avec le nom du fichier de rapport
+                return render_template('import_data.html', report_file=report_filename)
             else:
                 flash(result['message'], 'danger')
                 
@@ -69,13 +76,21 @@ def import_data():
                         for error in table_result.get('errors', []):
                             flash(error, 'danger')
                 
-                return redirect(request.url)
+                # Même en cas d'erreur, on propose le téléchargement du rapport
+                return render_template('import_data.html', report_file=report_filename)
         else:
             flash('Type de fichier non autorisé. Formats acceptés : ZIP', 'danger')
             return redirect(request.url)
     
     # Afficher le formulaire d'importation
     return render_template('import_data.html')
+
+# Route pour télécharger le rapport de validation
+@bp.route('/download-report/<filename>')
+def download_report(filename):
+    """Téléchargement du rapport de validation"""
+    reports_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'reports')
+    return send_from_directory(reports_dir, filename, as_attachment=True)
 
 # Routes pour la visualisation des adresses
 @bp.route('/adresses')
@@ -238,7 +253,7 @@ def api_organisme(or_code):
 
 @bp.route('/api/import', methods=['POST'])
 def api_import_data():
-    """API pour importer des données"""
+    """API pour importer des données et générer un rapport"""
     if 'file' not in request.files:
         return jsonify({'success': False, 'message': 'Aucun fichier fourni'}), 400
     
@@ -251,14 +266,31 @@ def api_import_data():
         file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
         file.save(file_path)
         
+        # Importer les données
         result = ImportService.import_from_file(file_path)
         
+        # Générer le rapport de validation
+        export_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'reports')
+        report_path = ExportService.generate_validation_report(result, export_dir)
+        report_filename = os.path.basename(report_path)
+        
+        # Supprimer le fichier d'import temporaire
         os.remove(file_path)
         
         if result['success']:
-            return jsonify(result), 200
+            return jsonify({
+                'success': True,
+                'message': result['message'],
+                'tables': result.get('tables', []),
+                'report_url': url_for('main.download_report', filename=report_filename, _external=True)
+            }), 200
         else:
-            return jsonify(result), 400
+            return jsonify({
+                'success': False,
+                'message': result['message'],
+                'tables': result.get('tables', []),
+                'report_url': url_for('main.download_report', filename=report_filename, _external=True)
+            }), 400
     else:
         return jsonify({
             'success': False,
