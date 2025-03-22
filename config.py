@@ -11,4 +11,9 @@ class Config:
         'postgresql://username:password@localhost/grace_thd'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     UPLOAD_FOLDER = os.path.join(basedir, 'uploads')
+    REPORTS_FOLDER = os.path.join(UPLOAD_FOLDER, 'reports')
     MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50 Mo max pour les uploads
+    
+    # Créer les dossiers nécessaires s'ils n'existent pas
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+    os.makedirs(REPORTS_FOLDER, exist_ok=True)
