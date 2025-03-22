@@ -8,6 +8,7 @@ from shapely import wkt
 from app import db
 from app.models.adresse import Adresse
 from app.validators.adresse_validator import AdresseValidator
+from sqlalchemy.exc import IntegrityError
 
 class AdresseService:
     @staticmethod
@@ -210,15 +211,64 @@ class AdresseService:
                     'errors': ["Format de données non conforme ou données invalides"]
                 }
             
-            # Insertion en base de données
+            # Insertion en base de données avec gestion des doublons
             try:
-                db.session.bulk_save_objects(adresses)
+                inserted_count = 0
+                updated_count = 0
+                skipped_count = 0
+                errors = []
+                
+                for adresse in adresses:
+                    try:
+                        # Vérifier si l'adresse existe déjà
+                        existing = Adresse.query.get(adresse.ad_code)
+                        
+                        if existing:
+                            # Mettre à jour l'adresse existante
+                            for column in Adresse.__table__.columns.keys():
+                                if column != 'ad_code':  # Ne pas modifier la clé primaire
+                                    if column == 'geom' and hasattr(adresse, 'geom') and adresse.geom is not None:
+                                        setattr(existing, column, adresse.geom)
+                                    elif hasattr(adresse, column) and getattr(adresse, column) is not None:
+                                        setattr(existing, column, getattr(adresse, column))
+                            updated_count += 1
+                        else:
+                            # Insérer la nouvelle adresse
+                            db.session.add(adresse)
+                            inserted_count += 1
+                        
+                        # Faire un commit partiel toutes les 50 opérations pour éviter une trop grosse transaction
+                        if (inserted_count + updated_count) % 50 == 0:
+                            db.session.commit()
+                            
+                    except IntegrityError as ie:
+                        # Gérer spécifiquement les erreurs d'intégrité
+                        db.session.rollback()
+                        skipped_count += 1
+                        errors.append(f"Erreur d'intégrité pour l'adresse {adresse.ad_code}: {str(ie)}")
+                    except Exception as e:
+                        # Gérer les autres erreurs
+                        db.session.rollback()
+                        skipped_count += 1
+                        errors.append(f"Erreur pour l'adresse {adresse.ad_code}: {str(e)}")
+                
+                # Commit final
                 db.session.commit()
                 
+                message = f"{inserted_count} adresses importées, {updated_count} mises à jour"
+                if skipped_count > 0:
+                    message += f", {skipped_count} ignorées en raison d'erreurs"
+                
+                success = inserted_count + updated_count > 0
+                
                 return {
-                    'success': True,
-                    'message': f"{len(adresses)} adresses importées avec succès",
-                    'count': len(adresses)
+                    'success': success,
+                    'message': message,
+                    'count': inserted_count + updated_count,
+                    'inserted': inserted_count,
+                    'updated': updated_count,
+                    'skipped': skipped_count,
+                    'errors': errors[:10]  # Limiter le nombre d'erreurs retournées pour éviter un message trop long
                 }
             except Exception as e:
                 db.session.rollback()
