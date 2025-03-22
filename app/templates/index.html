@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}Accueil - GRACE THD Validator{% endblock %}
+
+{% block content %}
+<div class="jumbotron">
+    <h1 class="display-4">Bienvenue sur GRACE THD Validator</h1>
+    <p class="lead">
+        Application de validation et de contrôle des données GRACE THD pour les réseaux de fibre optique.
+    </p>
+    <hr class="my-4">
+    <p>
+        GRACE THD (Géoréférencement des Réseaux d'Amélioration des Communications Électroniques pour la Très Haute Définition)
+        est un modèle de données standardisé pour la gestion des réseaux de fibres optiques.
+    </p>
+    <p>
+        Cette application vous permet d'importer et de valider vos données GRACE THD pour garantir leur conformité.
+    </p>
+    <p class="lead">
+        <a class="btn btn-primary btn-lg" href="{{ url_for('main.import_adresses') }}" role="button">
+            <i class="fas fa-upload mr-2"></i>Importer des données
+        </a>
+        <a class="btn btn-outline-primary btn-lg ml-2" href="{{ url_for('main.adresses') }}" role="button">
+            <i class="fas fa-list mr-2"></i>Voir les adresses
+        </a>
+    </p>
+</div>
+
+<div class="row mt-5">
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0"><i class="fas fa-upload mr-2"></i>Importation</h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text">
+                    Importez vos données depuis des fichiers CSV, Shapefile ou GeoJSON.
+                    L'application vérifiera la structure et la conformité de vos données.
+                </p>
+                <a href="{{ url_for('main.import_adresses') }}" class="btn btn-outline-primary">Importer des données</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="card-title mb-0"><i class="fas fa-check-circle mr-2"></i>Validation</h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text">
+                    Validez vos données selon les règles du modèle GRACE THD.
+                    Identifiez rapidement les erreurs et les non-conformités.
+                </p>
+                <a href="{{ url_for('main.adresses') }}" class="btn btn-outline-success">Valider des adresses</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="card-title mb-0"><i class="fas fa-file-export mr-2"></i>Export</h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text">
+                    Exportez vos données validées et les rapports de validation
+                    pour les partager avec vos partenaires ou les intégrer à d'autres systèmes.
+                </p>
+                <button class="btn btn-outline-info" disabled>Fonctionnalité à venir</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
