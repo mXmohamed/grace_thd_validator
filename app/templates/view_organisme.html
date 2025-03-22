@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+
+{% block title %}Détails de l'organisme{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Détails de l'organisme</h1>
+    
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">{{ organisme.or_nom }}</h5>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <h6>Informations générales</h6>
+                    <table class="table table-bordered">
+                        <tr>
+                            <th>Code</th>
+                            <td>{{ organisme.or_code }}</td>
+                        </tr>
+                        <tr>
+                            <th>Nom</th>
+                            <td>{{ organisme.or_nom }}</td>
+                        </tr>
+                        <tr>
+                            <th>Type</th>
+                            <td>{{ organisme.or_type }}</td>
+                        </tr>
+                        <tr>
+                            <th>SIRET</th>
+                            <td>{{ organisme.or_siret }}</td>
+                        </tr>
+                        <tr>
+                            <th>SIREN</th>
+                            <td>{{ organisme.or_siren }}</td>
+                        </tr>
+                        <tr>
+                            <th>Nom de l'établissement</th>
+                            <td>{{ organisme.or_nometab }}</td>
+                        </tr>
+                        <tr>
+                            <th>Activité</th>
+                            <td>{{ organisme.or_activ }}</td>
+                        </tr>
+                        <tr>
+                            <th>Code L33-1</th>
+                            <td>{{ organisme.or_l331 }}</td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <h6>Coordonnées</h6>
+                    <table class="table table-bordered">
+                        <tr>
+                            <th>Numéro</th>
+                            <td>{{ organisme.or_numero }}</td>
+                        </tr>
+                        <tr>
+                            <th>Répétition</th>
+                            <td>{{ organisme.or_rep }}</td>
+                        </tr>
+                        <tr>
+                            <th>Nom de voie</th>
+                            <td>{{ organisme.or_nomvoie }}</td>
+                        </tr>
+                        <tr>
+                            <th>Complément</th>
+                            <td>{{ organisme.or_local }}</td>
+                        </tr>
+                        <tr>
+                            <th>Code postal</th>
+                            <td>{{ organisme.or_postal }}</td>
+                        </tr>
+                        <tr>
+                            <th>Commune</th>
+                            <td>{{ organisme.or_commune }}</td>
+                        </tr>
+                        <tr>
+                            <th>Téléphone fixe</th>
+                            <td>{{ organisme.or_telfixe }}</td>
+                        </tr>
+                        <tr>
+                            <th>Email</th>
+                            <td>{{ organisme.or_mail }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="row mb-3">
+                <div class="col-12">
+                    <h6>Métadonnées</h6>
+                    <table class="table table-bordered">
+                        <tr>
+                            <th>Commentaire</th>
+                            <td>{{ organisme.or_comment }}</td>
+                        </tr>
+                        <tr>
+                            <th>Date de création</th>
+                            <td>{{ organisme.or_creadat }}</td>
+                        </tr>
+                        <tr>
+                            <th>Date de mise à jour</th>
+                            <td>{{ organisme.or_majdate }}</td>
+                        </tr>
+                        <tr>
+                            <th>Source de mise à jour</th>
+                            <td>{{ organisme.or_majsrc }}</td>
+                        </tr>
+                        <tr>
+                            <th>Date d'abandon</th>
+                            <td>{{ organisme.or_abddate }}</td>
+                        </tr>
+                        <tr>
+                            <th>Source d'abandon</th>
+                            <td>{{ organisme.or_abdsrc }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="d-flex justify-content-between align-items-center">
+                <a href="{{ url_for('main.organismes') }}" class="btn btn-secondary">Retour à la liste</a>
+                <button id="validate-btn" class="btn btn-success">Valider cet organisme</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal pour afficher les résultats de validation -->
+<div class="modal fade" id="validationModal" tabindex="-1" aria-labelledby="validationModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="validationModalLabel">Résultat de la validation</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="validation-success" class="alert alert-success" style="display: none;">
+                    Validation réussie !
+                </div>
+                <div id="validation-error" class="alert alert-danger" style="display: none;">
+                    <p>Des erreurs ont été détectées :</p>
+                    <ul id="error-list"></ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const validateBtn = document.getElementById('validate-btn');
+        const validationModal = new bootstrap.Modal(document.getElementById('validationModal'));
+        
+        validateBtn.addEventListener('click', function() {
+            // Appel API pour valider l'organisme
+            fetch(`/organismes/{{ organisme.or_code }}/validate`)
+                .then(response => response.json())
+                .then(data => {
+                    const successDiv = document.getElementById('validation-success');
+                    const errorDiv = document.getElementById('validation-error');
+                    const errorList = document.getElementById('error-list');
+                    
+                    // Réinitialiser les éléments
+                    successDiv.style.display = 'none';
+                    errorDiv.style.display = 'none';
+                    errorList.innerHTML = '';
+                    
+                    if (data.success) {
+                        successDiv.style.display = 'block';
+                    } else {
+                        errorDiv.style.display = 'block';
+                        
+                        // Afficher les erreurs
+                        data.errors.forEach(error => {
+                            const li = document.createElement('li');
+                            li.textContent = error;
+                            errorList.appendChild(li);
+                        });
+                    }
+                    
+                    validationModal.show();
+                })
+                .catch(error => {
+                    console.error('Erreur lors de la validation :', error);
+                });
+        });
+    });
+</script>
+{% endblock %}
