@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+
+{% block title %}Détails de l'adresse - GRACE THD Validator{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Détails de l'adresse</h1>
+    <div>
+        <button id="validateBtn" class="btn btn-success mr-2">
+            <i class="fas fa-check-circle mr-2"></i>Valider
+        </button>
+        <a href="{{ url_for('main.adresses') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left mr-2"></i>Retour
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h2 class="h4 mb-0">{{ adresse.ad_numero if adresse.ad_numero }} {{ adresse.ad_rep if adresse.ad_rep }} {{ adresse.ad_nomvoie }}</h2>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5>Informations principales</h5>
+                        <ul class="list-group list-group-flush mb-3">
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Code</span>
+                                <strong>{{ adresse.ad_code }}</strong>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Commune</span>
+                                <strong>{{ adresse.ad_commune }}</strong>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Code INSEE</span>
+                                <strong>{{ adresse.ad_insee }}</strong>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Code Postal</span>
+                                <strong>{{ adresse.ad_postal or 'Non spécifié' }}</strong>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Code HEXACLE</span>
+                                <strong>{{ adresse.ad_hexacle or 'Non spécifié' }}</strong>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h5>Informations complémentaires</h5>
+                        <ul class="list-group list-group-flush mb-3">
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Raccordable en longueur</span>
+                                <strong>{{ 'Oui' if adresse.ad_raclong == '1' else 'Non' if adresse.ad_raclong == '0' else 'Non spécifié' }}</strong>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Local isolé</span>
+                                <strong>{{ 'Oui' if adresse.ad_isole == '1' else 'Non' if adresse.ad_isole == '0' else 'Non spécifié' }}</strong>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Raccordement prioritaire</span>
+                                <strong>{{ 'Oui' if adresse.ad_prio == '1' else 'Non' if adresse.ad_prio == '0' else 'Non spécifié' }}</strong>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Type de zone</span>
+                                <strong>{{ adresse.ad_typzone or 'Non spécifié' }}</strong>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Dernière mise à jour</span>
+                                <strong>{{ adresse.ad_majdate.strftime('%d/%m/%Y') if adresse.ad_majdate else 'Non spécifié' }}</strong>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                
+                {% if adresse.ad_comment %}
+                <div class="alert alert-info mt-3">
+                    <h5 class="alert-heading">Commentaire</h5>
+                    <p>{{ adresse.ad_comment }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">Statistiques de l'adresse</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Nombre de locaux</h6>
+                        <table class="table table-sm">
+                            <tbody>
+                                <tr>
+                                    <td>Résidentiels</td>
+                                    <td><strong>{{ adresse.ad_nblres or 0 }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td>Professionnels</td>
+                                    <td><strong>{{ adresse.ad_nblpro or 0 }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td>Entreprises</td>
+                                    <td><strong>{{ adresse.ad_nblent or 0 }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td>Services publics</td>
+                                    <td><strong>{{ adresse.ad_nblpub or 0 }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td>Objets connectés</td>
+                                    <td><strong>{{ adresse.ad_nblobj or 0 }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td>Opérateurs télécoms</td>
+                                    <td><strong>{{ adresse.ad_nblope or 0 }}</strong></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Nombre de fibres</h6>
+                        <table class="table table-sm">
+                            <tbody>
+                                <tr>
+                                    <td>FTTE</td>
+                                    <td><strong>{{ adresse.ad_nbfotte or 0 }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td>GFU</td>
+                                    <td><strong>{{ adresse.ad_nbfogfu or 0 }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td>FTTO</td>
+                                    <td><strong>{{ adresse.ad_nbfotto or 0 }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td>FTTH</td>
+                                    <td><strong>{{ adresse.ad_nbfotth or 0 }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td>Fibres noires</td>
+                                    <td><strong>{{ adresse.ad_nbfofon or 0 }}</strong></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">Validation</h5>
+            </div>
+            <div class="card-body">
+                <div id="validationResult">
+                    <div class="text-center">
+                        <i class="fas fa-spinner fa-spin fa-3x my-3"></i>
+                        <p>En attente de validation...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0">Métadonnées</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Code bâtiment</span>
+                        <strong>{{ adresse.ad_batcode or 'Non spécifié' }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Code temporaire</span>
+                        <strong>{{ adresse.ad_codtemp or 'Non spécifié' }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>État immeuble</span>
+                        <strong>{{ adresse.ad_ietat or 'Non spécifié' }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Immeuble neuf</span>
+                        <strong>{{ 'Oui' if adresse.ad_imneuf == '1' else 'Non' if adresse.ad_imneuf == '0' else 'Non spécifié' }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Précision géométrique</span>
+                        <strong>{{ adresse.ad_geolqlt or 'Non spécifié' }} m</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Mode d'implantation</span>
+                        <strong>{{ adresse.ad_geolmod or 'Non spécifié' }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Date de création</span>
+                        <strong>{{ adresse.ad_creadat.strftime('%d/%m/%Y') if adresse.ad_creadat else 'Non spécifié' }}</strong>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        // Fonction pour valider l'adresse
+        function validateAdresse() {
+            const adCode = "{{ adresse.ad_code }}";
+            
+            $.ajax({
+                url: `/adresses/${adCode}/validate`,
+                type: 'GET',
+                success: function(response) {
+                    // Mettre à jour le div avec le résultat
+                    const resultDiv = $('#validationResult');
+                    resultDiv.empty();
+                    
+                    if (response.success) {
+                        resultDiv.html(`
+                            <div class="alert alert-success">
+                                <h4 class="alert-heading"><i class="fas fa-check-circle mr-2"></i>Adresse valide</h4>
+                                <p>Cette adresse respecte toutes les règles du modèle GRACE THD.</p>
+                            </div>
+                        `);
+                    } else {
+                        let errorsList = '';
+                        response.errors.forEach(function(error) {
+                            errorsList += `<li class="list-group-item list-group-item-danger">${error}</li>`;
+                        });
+                        
+                        resultDiv.html(`
+                            <div class="alert alert-danger">
+                                <h4 class="alert-heading"><i class="fas fa-exclamation-triangle mr-2"></i>Adresse non valide</h4>
+                                <p>Cette adresse présente ${response.errors.length} problème(s) :</p>
+                            </div>
+                            <ul class="list-group mb-3">
+                                ${errorsList}
+                            </ul>
+                        `);
+                    }
+                },
+                error: function() {
+                    $('#validationResult').html(`
+                        <div class="alert alert-warning">
+                            <h4 class="alert-heading"><i class="fas fa-exclamation-circle mr-2"></i>Erreur</h4>
+                            <p>Impossible de valider cette adresse. Veuillez réessayer.</p>
+                        </div>
+                    `);
+                }
+            });
+        }
+        
+        // Valider l'adresse au chargement de la page
+        validateAdresse();
+        
+        // Bouton de validation
+        $('#validateBtn').click(function() {
+            $('#validationResult').html(`
+                <div class="text-center">
+                    <i class="fas fa-spinner fa-spin fa-3x my-3"></i>
+                    <p>Validation en cours...</p>
+                </div>
+            `);
+            validateAdresse();
+        });
+    });
+</script>
+{% endblock %}
