@@ -1,0 +1,49 @@
+# Environnement virtuel
+venv/
+env/
+ENV/
+
+# Fichiers générés par Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Fichiers de configuration locaux
+.env
+.flaskenv
+*.pyc
+instance/
+.webassets-cache
+
+# Dossier d'upload (temporaire)
+uploads/*
+!uploads/.gitkeep
+
+# Logs
+*.log
+
+# Base de données SQLite (si utilisée)
+*.sqlite
+
+# Fichiers spécifiques à l'IDE
+.idea/
+.vscode/
+*.swp
+*.swo
