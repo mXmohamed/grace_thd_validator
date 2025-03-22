@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+
+{% block title %}Adresses - GRACE THD Validator{% endblock %}
+
+{% block styles %}
+<style>
+    .table-responsive {
+        max-height: 600px;
+        overflow-y: auto;
+    }
+    .validation-badge {
+        cursor: pointer;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Liste des adresses</h1>
+    <a href="{{ url_for('main.import_adresses') }}" class="btn btn-primary">
+        <i class="fas fa-upload mr-2"></i>Importer des adresses
+    </a>
+</div>
+
+{% if adresses.items %}
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead class="thead-dark">
+                <tr>
+                    <th>Code</th>
+                    <th>Adresse</th>
+                    <th>Commune</th>
+                    <th>Code INSEE</th>
+                    <th>Code Postal</th>
+                    <th>Validation</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for adresse in adresses.items %}
+                <tr>
+                    <td>{{ adresse.ad_code }}</td>
+                    <td>
+                        {% if adresse.ad_numero %}{{ adresse.ad_numero }}{% endif %}
+                        {% if adresse.ad_rep %}{{ adresse.ad_rep }}{% endif %}
+                        {{ adresse.ad_nomvoie }}
+                    </td>
+                    <td>{{ adresse.ad_commune }}</td>
+                    <td>{{ adresse.ad_insee }}</td>
+                    <td>{{ adresse.ad_postal }}</td>
+                    <td>
+                        <span class="badge badge-secondary validation-badge" data-code="{{ adresse.ad_code }}">
+                            <i class="fas fa-spinner fa-spin"></i> Non validé
+                        </span>
+                    </td>
+                    <td>
+                        <a href="{{ url_for('main.view_adresse', ad_code=adresse.ad_code) }}" class="btn btn-sm btn-info">
+                            <i class="fas fa-eye"></i> Détails
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Pagination -->
+    <nav aria-label="Navigation des pages">
+        <ul class="pagination justify-content-center">
+            {% if adresses.has_prev %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('main.adresses', page=adresses.prev_num) }}">Précédent</a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <a class="page-link" href="#" tabindex="-1" aria-disabled="true">Précédent</a>
+            </li>
+            {% endif %}
+            
+            {% for page_num in adresses.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                {% if page_num %}
+                    {% if page_num == adresses.page %}
+                    <li class="page-item active">
+                        <a class="page-link" href="{{ url_for('main.adresses', page=page_num) }}">{{ page_num }}</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('main.adresses', page=page_num) }}">{{ page_num }}</a>
+                    </li>
+                    {% endif %}
+                {% else %}
+                <li class="page-item disabled">
+                    <a class="page-link" href="#">...</a>
+                </li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if adresses.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('main.adresses', page=adresses.next_num) }}">Suivant</a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <a class="page-link" href="#" tabindex="-1" aria-disabled="true">Suivant</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    
+    <div class="text-center text-muted">
+        Affichage de {{ adresses.items|length }} adresses sur {{ adresses.total }}
+    </div>
+{% else %}
+    <div class="alert alert-info" role="alert">
+        <h4 class="alert-heading">Aucune adresse trouvée!</h4>
+        <p>Il n'y a pas encore d'adresses dans la base de données.</p>
+        <hr>
+        <p class="mb-0">
+            <a href="{{ url_for('main.import_adresses') }}" class="btn btn-primary">Importer des adresses</a>
+        </p>
+    </div>
+{% endif %}
+
+<!-- Modal pour afficher les erreurs de validation -->
+<div class="modal fade" id="validationModal" tabindex="-1" aria-labelledby="validationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="validationModalLabel">Résultats de validation</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="validationSuccess" class="alert alert-success" style="display:none;">
+                    <i class="fas fa-check-circle mr-2"></i>Cette adresse est valide!
+                </div>
+                <div id="validationErrors" style="display:none;">
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>Cette adresse contient des erreurs:
+                    </div>
+                    <ul id="errorsList" class="list-group">
+                    </ul>
+                </div>
+                <div id="validationLoader" class="text-center">
+                    <i class="fas fa-spinner fa-spin fa-3x my-3"></i>
+                    <p>Validation en cours...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        // Fonction pour valider une adresse
+        function validateAdresse(adCode, badgeElement) {
+            $.ajax({
+                url: `/adresses/${adCode}/validate`,
+                type: 'GET',
+                success: function(response) {
+                    // Mettre à jour le badge avec le résultat
+                    if (response.success) {
+                        $(badgeElement).removeClass('badge-secondary').addClass('badge-success');
+                        $(badgeElement).html('<i class="fas fa-check-circle"></i> Valide');
+                    } else {
+                        $(badgeElement).removeClass('badge-secondary').addClass('badge-danger');
+                        $(badgeElement).html(`<i class="fas fa-exclamation-circle"></i> ${response.errors.length} erreurs`);
+                    }
+                    
+                    // Stocker les erreurs dans un attribut data pour le modal
+                    $(badgeElement).data('validation-result', response);
+                },
+                error: function() {
+                    $(badgeElement).removeClass('badge-secondary').addClass('badge-warning');
+                    $(badgeElement).html('<i class="fas fa-exclamation-triangle"></i> Erreur');
+                }
+            });
+        }
+        
+        // Valider toutes les adresses de la page
+        $('.validation-badge').each(function() {
+            const adCode = $(this).data('code');
+            validateAdresse(adCode, this);
+        });
+        
+        // Afficher le modal avec les détails de validation au clic sur un badge
+        $('.validation-badge').click(function() {
+            const result = $(this).data('validation-result');
+            
+            // Si le résultat n'est pas encore disponible
+            if (!result) {
+                $('#validationSuccess').hide();
+                $('#validationErrors').hide();
+                $('#validationLoader').show();
+                $('#validationModal').modal('show');
+                return;
+            }
+            
+            // Cacher le loader
+            $('#validationLoader').hide();
+            
+            // Afficher le résultat
+            if (result.success) {
+                $('#validationSuccess').show();
+                $('#validationErrors').hide();
+            } else {
+                $('#validationSuccess').hide();
+                $('#validationErrors').show();
+                
+                // Afficher la liste des erreurs
+                const errorsList = $('#errorsList');
+                errorsList.empty();
+                
+                result.errors.forEach(function(error) {
+                    errorsList.append(`<li class="list-group-item list-group-item-danger">${error}</li>`);
+                });
+            }
+            
+            // Afficher le modal
+            $('#validationModal').modal('show');
+        });
+    });
+</script>
+{% endblock %}
