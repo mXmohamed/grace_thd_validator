@@ -7,6 +7,9 @@ import geopandas as gpd
 from app import db
 from app.models.organisme import Organisme
 from app.validators.organisme_validator import OrganismeValidator
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import update
 
 class OrganismeService:
     @staticmethod
@@ -169,15 +172,62 @@ class OrganismeService:
                 'errors': ["Format de données non conforme ou données invalides"]
             }
         
-        # Insertion en base de données
+        # Insertion en base de données avec gestion des doublons
         try:
-            db.session.bulk_save_objects(organismes)
+            inserted_count = 0
+            updated_count = 0
+            skipped_count = 0
+            errors = []
+            
+            for organisme in organismes:
+                try:
+                    # Vérifier si l'organisme existe déjà
+                    existing = Organisme.query.get(organisme.or_code)
+                    
+                    if existing:
+                        # Mettre à jour l'organisme existant (version simple)
+                        # Alternativement, vous pouvez décider de ne pas mettre à jour et simplement ignorer
+                        for column in Organisme.__table__.columns.keys():
+                            if column != 'or_code':  # Ne pas modifier la clé primaire
+                                setattr(existing, column, getattr(organisme, column))
+                        updated_count += 1
+                    else:
+                        # Insérer le nouvel organisme
+                        db.session.add(organisme)
+                        inserted_count += 1
+                    
+                    # Faire un commit partiel toutes les 50 opérations pour éviter une trop grosse transaction
+                    if (inserted_count + updated_count) % 50 == 0:
+                        db.session.commit()
+                        
+                except IntegrityError as ie:
+                    # Gérer spécifiquement les erreurs d'intégrité
+                    db.session.rollback()
+                    skipped_count += 1
+                    errors.append(f"Erreur d'intégrité pour l'organisme {organisme.or_code}: {str(ie)}")
+                except Exception as e:
+                    # Gérer les autres erreurs
+                    db.session.rollback()
+                    skipped_count += 1
+                    errors.append(f"Erreur pour l'organisme {organisme.or_code}: {str(e)}")
+            
+            # Commit final
             db.session.commit()
             
+            message = f"{inserted_count} organismes importés, {updated_count} mis à jour"
+            if skipped_count > 0:
+                message += f", {skipped_count} ignorés en raison d'erreurs"
+            
+            success = inserted_count + updated_count > 0
+            
             return {
-                'success': True,
-                'message': f"{len(organismes)} organismes importés avec succès",
-                'count': len(organismes)
+                'success': success,
+                'message': message,
+                'count': inserted_count + updated_count,
+                'inserted': inserted_count,
+                'updated': updated_count,
+                'skipped': skipped_count,
+                'errors': errors[:10]  # Limiter le nombre d'erreurs retournées pour éviter un message trop long
             }
         except Exception as e:
             db.session.rollback()
