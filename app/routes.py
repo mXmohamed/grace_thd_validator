@@ -3,6 +3,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from werkzeug.utils import secure_filename
 from app.services.adresse_service import AdresseService
 from app.services.organisme_service import OrganismeService
+from app.services.import_service import ImportService
 
 bp = Blueprint('main', __name__)
 
@@ -16,18 +17,10 @@ def index():
     """Page d'accueil"""
     return render_template('index.html')
 
-# Routes pour les adresses
-@bp.route('/adresses')
-def adresses():
-    """Liste des adresses avec pagination"""
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 10, type=int)
-    adresses = AdresseService.get_all_adresses(page, per_page)
-    return render_template('adresse.html', adresses=adresses)
-
-@bp.route('/adresses/import', methods=['GET', 'POST'])
-def import_adresses():
-    """Importation d'adresses depuis un fichier"""
+# Route d'importation unifiée
+@bp.route('/import', methods=['GET', 'POST'])
+def import_data():
+    """Importation de données depuis un fichier ZIP"""
     if request.method == 'POST':
         # Vérifier si un fichier a été soumis
         if 'file' not in request.files:
@@ -48,8 +41,8 @@ def import_adresses():
             file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
             file.save(file_path)
             
-            # Importer les adresses
-            result = AdresseService.import_from_file(file_path)
+            # Importer les données
+            result = ImportService.import_from_file(file_path)
             
             # Supprimer le fichier temporaire
             os.remove(file_path)
@@ -57,21 +50,41 @@ def import_adresses():
             # Gérer le résultat
             if result['success']:
                 flash(result['message'], 'success')
-                return redirect(url_for('main.adresses'))
+                
+                # Ajouter des messages pour chaque table
+                for table_result in result.get('tables', []):
+                    status_class = 'success' if table_result.get('success') else 'warning'
+                    flash(f"Table {table_result.get('table')}: {table_result.get('message')}", status_class)
+                
+                return redirect(url_for('main.index'))
             else:
-                if 'errors' in result:
-                    # Afficher la liste des erreurs
-                    for error in result['errors']:
-                        flash(error, 'danger')
-                else:
-                    flash(result['message'], 'danger')
+                flash(result['message'], 'danger')
+                
+                # Ajouter des messages pour chaque table
+                for table_result in result.get('tables', []):
+                    if not table_result.get('success'):
+                        flash(f"Table {table_result.get('table')}: {table_result.get('message')}", 'warning')
+                        
+                        # Afficher les erreurs détaillées
+                        for error in table_result.get('errors', []):
+                            flash(error, 'danger')
+                
                 return redirect(request.url)
         else:
-            flash('Type de fichier non autorisé. Formats acceptés : CSV, SHP, GeoJSON, ZIP', 'danger')
+            flash('Type de fichier non autorisé. Formats acceptés : ZIP', 'danger')
             return redirect(request.url)
     
     # Afficher le formulaire d'importation
-    return render_template('import.html', entity_type='adresse')
+    return render_template('import_data.html')
+
+# Routes pour la visualisation des adresses
+@bp.route('/adresses')
+def adresses():
+    """Liste des adresses avec pagination"""
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+    adresses = AdresseService.get_all_adresses(page, per_page)
+    return render_template('adresse.html', adresses=adresses)
 
 @bp.route('/adresses/<string:ad_code>')
 def view_adresse(ad_code):
@@ -96,7 +109,7 @@ def validate_adresse(ad_code):
         'errors': result.get('errors', [])
     })
 
-# Routes pour les organismes
+# Routes pour la visualisation des organismes
 @bp.route('/organismes')
 def organismes():
     """Liste des organismes avec pagination"""
@@ -104,54 +117,6 @@ def organismes():
     per_page = request.args.get('per_page', 10, type=int)
     organismes = OrganismeService.get_all_organismes(page, per_page)
     return render_template('organisme.html', organismes=organismes)
-
-@bp.route('/organismes/import', methods=['GET', 'POST'])
-def import_organismes():
-    """Importation d'organismes depuis un fichier"""
-    if request.method == 'POST':
-        # Vérifier si un fichier a été soumis
-        if 'file' not in request.files:
-            flash('Aucun fichier sélectionné', 'danger')
-            return redirect(request.url)
-        
-        file = request.files['file']
-        
-        # Si l'utilisateur ne sélectionne pas de fichier
-        if file.filename == '':
-            flash('Aucun fichier sélectionné', 'danger')
-            return redirect(request.url)
-        
-        # Vérifier si le fichier est autorisé
-        if file and allowed_file(file.filename):
-            # Sauvegarder le fichier
-            filename = secure_filename(file.filename)
-            file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
-            file.save(file_path)
-            
-            # Importer les organismes
-            result = OrganismeService.import_from_file(file_path)
-            
-            # Supprimer le fichier temporaire
-            os.remove(file_path)
-            
-            # Gérer le résultat
-            if result['success']:
-                flash(result['message'], 'success')
-                return redirect(url_for('main.organismes'))
-            else:
-                if 'errors' in result:
-                    # Afficher la liste des erreurs
-                    for error in result['errors']:
-                        flash(error, 'danger')
-                else:
-                    flash(result['message'], 'danger')
-                return redirect(request.url)
-        else:
-            flash('Type de fichier non autorisé. Formats acceptés : CSV, SHP, GeoJSON, ZIP', 'danger')
-            return redirect(request.url)
-    
-    # Afficher le formulaire d'importation
-    return render_template('import.html', entity_type='organisme')
 
 @bp.route('/organismes/<string:or_code>')
 def view_organisme(or_code):
@@ -176,7 +141,7 @@ def validate_organisme(or_code):
         'errors': result.get('errors', [])
     })
 
-# API routes
+# API Routes
 @bp.route('/api/adresses', methods=['GET'])
 def api_adresses():
     """API pour récupérer la liste des adresses"""
@@ -271,9 +236,9 @@ def api_organisme(or_code):
         'organisme': organisme_dict
     })
 
-@bp.route('/api/import/adresses', methods=['POST'])
-def api_import_adresses():
-    """API pour importer des adresses"""
+@bp.route('/api/import', methods=['POST'])
+def api_import_data():
+    """API pour importer des données"""
     if 'file' not in request.files:
         return jsonify({'success': False, 'message': 'Aucun fichier fourni'}), 400
     
@@ -286,7 +251,7 @@ def api_import_adresses():
         file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
         file.save(file_path)
         
-        result = AdresseService.import_from_file(file_path)
+        result = ImportService.import_from_file(file_path)
         
         os.remove(file_path)
         
@@ -297,34 +262,5 @@ def api_import_adresses():
     else:
         return jsonify({
             'success': False,
-            'message': 'Type de fichier non autorisé. Formats acceptés : CSV, SHP, GeoJSON, ZIP'
-        }), 400
-
-@bp.route('/api/import/organismes', methods=['POST'])
-def api_import_organismes():
-    """API pour importer des organismes"""
-    if 'file' not in request.files:
-        return jsonify({'success': False, 'message': 'Aucun fichier fourni'}), 400
-    
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'success': False, 'message': 'Nom de fichier vide'}), 400
-    
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
-        file.save(file_path)
-        
-        result = OrganismeService.import_from_file(file_path)
-        
-        os.remove(file_path)
-        
-        if result['success']:
-            return jsonify(result), 200
-        else:
-            return jsonify(result), 400
-    else:
-        return jsonify({
-            'success': False,
-            'message': 'Type de fichier non autorisé. Formats acceptés : CSV, SHP, GeoJSON, ZIP'
+            'message': 'Type de fichier non autorisé. Formats acceptés : ZIP'
         }), 400
