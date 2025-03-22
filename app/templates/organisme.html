@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}Liste des organismes{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Liste des organismes</h1>
+    
+    <div class="mb-3">
+        <a href="{{ url_for('main.import_organismes') }}" class="btn btn-primary">Importer des organismes</a>
+    </div>
+    
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Nom</th>
+                    <th>Type</th>
+                    <th>SIRET</th>
+                    <th>Commune</th>
+                    <th>Code postal</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for organisme in organismes.items %}
+                <tr>
+                    <td>{{ organisme.or_code }}</td>
+                    <td>{{ organisme.or_nom }}</td>
+                    <td>{{ organisme.or_type }}</td>
+                    <td>{{ organisme.or_siret }}</td>
+                    <td>{{ organisme.or_commune }}</td>
+                    <td>{{ organisme.or_postal }}</td>
+                    <td>
+                        <a href="{{ url_for('main.view_organisme', or_code=organisme.or_code) }}" class="btn btn-sm btn-info">Détails</a>
+                        <button class="btn btn-sm btn-success validate-btn" data-code="{{ organisme.or_code }}">Valider</button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="text-center">Aucun organisme trouvé</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Pagination -->
+    {% if organismes.pages > 1 %}
+    <nav aria-label="Pagination des organismes">
+        <ul class="pagination justify-content-center">
+            {% if organismes.has_prev %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('main.organismes', page=organismes.prev_num) }}" aria-label="Previous">
+                    <span aria-hidden="true">&laquo;</span>
+                </a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link" aria-hidden="true">&laquo;</span>
+            </li>
+            {% endif %}
+            
+            {% for page_num in organismes.iter_pages() %}
+                {% if page_num %}
+                    {% if page_num != organismes.page %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('main.organismes', page=page_num) }}">{{ page_num }}</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ page_num }}</span>
+                    </li>
+                    {% endif %}
+                {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if organismes.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('main.organismes', page=organismes.next_num) }}" aria-label="Next">
+                    <span aria-hidden="true">&raquo;</span>
+                </a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link" aria-hidden="true">&raquo;</span>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+<!-- Modal pour afficher les résultats de validation -->
+<div class="modal fade" id="validationModal" tabindex="-1" aria-labelledby="validationModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="validationModalLabel">Résultat de la validation</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="validation-success" class="alert alert-success" style="display: none;">
+                    Validation réussie !
+                </div>
+                <div id="validation-error" class="alert alert-danger" style="display: none;">
+                    <p>Des erreurs ont été détectées :</p>
+                    <ul id="error-list"></ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const validateButtons = document.querySelectorAll('.validate-btn');
+        const validationModal = new bootstrap.Modal(document.getElementById('validationModal'));
+        
+        validateButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const code = this.getAttribute('data-code');
+                
+                // Appel API pour valider l'organisme
+                fetch(`/organismes/${code}/validate`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const successDiv = document.getElementById('validation-success');
+                        const errorDiv = document.getElementById('validation-error');
+                        const errorList = document.getElementById('error-list');
+                        
+                        // Réinitialiser les éléments
+                        successDiv.style.display = 'none';
+                        errorDiv.style.display = 'none';
+                        errorList.innerHTML = '';
+                        
+                        if (data.success) {
+                            successDiv.style.display = 'block';
+                        } else {
+                            errorDiv.style.display = 'block';
+                            
+                            // Afficher les erreurs
+                            data.errors.forEach(error => {
+                                const li = document.createElement('li');
+                                li.textContent = error;
+                                errorList.appendChild(li);
+                            });
+                        }
+                        
+                        validationModal.show();
+                    })
+                    .catch(error => {
+                        console.error('Erreur lors de la validation :', error);
+                    });
+            });
+        });
+    });
+</script>
+{% endblock %}
