@@ -32,7 +32,6 @@
                         </a>
                         <div class="dropdown-menu">
                             <a class="dropdown-item" href="{{ url_for('main.adresses') }}">Liste des adresses</a>
-                            <a class="dropdown-item" href="{{ url_for('main.import_adresses') }}">Importer des adresses</a>
                         </div>
                     </li>
                     <li class="nav-item dropdown">
@@ -41,8 +40,12 @@
                         </a>
                         <div class="dropdown-menu">
                             <a class="dropdown-item" href="{{ url_for('main.organismes') }}">Liste des organismes</a>
-                            <a class="dropdown-item" href="{{ url_for('main.import_organismes') }}">Importer des organismes</a>
                         </div>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('main.import_data') }}">
+                            <i class="fas fa-file-upload mr-1"></i>Importer des données
+                        </a>
                     </li>
                 </ul>
             </div>
