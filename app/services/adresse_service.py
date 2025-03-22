@@ -1,4 +1,7 @@
 import os
+import zipfile
+import tempfile
+import shutil
 import pandas as pd
 import geopandas as gpd
 from shapely import wkt
@@ -10,7 +13,7 @@ class AdresseService:
     @staticmethod
     def import_from_file(file_path):
         """
-        Importe des adresses depuis un fichier (CSV, SHP, GeoJSON)
+        Importe des adresses depuis un fichier (CSV, SHP, GeoJSON, ZIP)
         
         Args:
             file_path (str): Chemin vers le fichier à importer
@@ -21,8 +24,41 @@ class AdresseService:
         file_ext = os.path.splitext(file_path)[1].lower()
         
         try:
-            # Charger le fichier selon son format
-            if file_ext == '.csv':
+            # Gérer les fichiers ZIP
+            if file_ext == '.zip':
+                # Créer un dossier temporaire pour extraire les fichiers
+                temp_dir = tempfile.mkdtemp()
+                try:
+                    # Extraire tous les fichiers du ZIP
+                    with zipfile.ZipFile(file_path, 'r') as zip_ref:
+                        zip_ref.extractall(temp_dir)
+                    
+                    # Chercher un fichier SHP dans le dossier
+                    shp_files = [f for f in os.listdir(temp_dir) if f.lower().endswith('.shp')]
+                    
+                    if not shp_files:
+                        return {
+                            'success': False,
+                            'message': "Aucun fichier Shapefile (.shp) trouvé dans l'archive ZIP"
+                        }
+                    
+                    # Utiliser le premier fichier SHP trouvé
+                    shp_path = os.path.join(temp_dir, shp_files[0])
+                    
+                    # Lire le fichier SHP
+                    gdf = gpd.read_file(shp_path)
+                    
+                    # Convertir à EPSG:4326 si nécessaire
+                    if gdf.crs and gdf.crs != "EPSG:4326":
+                        gdf = gdf.to_crs("EPSG:4326")
+                    
+                finally:
+                    # Nettoyer le dossier temporaire
+                    shutil.rmtree(temp_dir)
+            
+            # Traiter les autres formats comme avant
+            elif file_ext == '.csv':
+                # Code pour les CSV
                 df = pd.read_csv(file_path)
                 
                 # Vérifier si les colonnes de géométrie existent
@@ -112,7 +148,7 @@ class AdresseService:
         for column in Adresse.__table__.columns.keys():
             # Cas spécial pour la géométrie
             if column == 'geom':
-                if row.get('geometry') is not None:
+                if hasattr(row, 'geometry') and row.geometry is not None:
                     adresse.geom = row.geometry.wkt
                 continue
                 
