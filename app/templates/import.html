@@ -1,78 +1,80 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
-{% block title %}Import d'adresses - GRACE THD Validator{% endblock %}
+{% block title %}Importation de données{% endblock %}
 
 {% block content %}
-<div class="card">
-    <div class="card-header bg-primary text-white">
-        <h5 class="mb-0">
-            <i class="fas fa-file-import mr-2"></i>Importation d'adresses
-        </h5>
-    </div>
-    <div class="card-body">
-        <div class="alert alert-info">
-            <i class="fas fa-info-circle mr-2"></i>
-            Vous pouvez importer des adresses depuis un fichier CSV, SHP, GeoJSON ou ZIP.
-            Assurez-vous que les données sont correctement formatées selon les spécifications GRACE THD.
+<div class="container mt-4">
+    {% if entity_type == 'organisme' %}
+        <h1>Importation d'organismes</h1>
+        <p class="lead">
+            Importez vos données d'organismes au format CSV, Shapefile, GeoJSON ou ZIP.
+        </p>
+        <div class="alert alert-info" role="alert">
+            <h4 class="alert-heading"><i class="fas fa-info-circle mr-2"></i>Information</h4>
+            <p>
+                Si vous importez un fichier ZIP contenant plusieurs fichiers, l'application recherchera automatiquement
+                les fichiers dont le nom contient "t_organisme".
+            </p>
+            <hr>
+            <p class="mb-0">
+                Le format des données doit respecter la structure de la table <code>t_organisme</code> du modèle GRACE THD.
+            </p>
         </div>
+    {% else %}
+        <h1>Importation d'adresses</h1>
+        <p class="lead">
+            Importez vos données d'adresses au format CSV, Shapefile, GeoJSON ou ZIP.
+        </p>
+        <div class="alert alert-info" role="alert">
+            <h4 class="alert-heading"><i class="fas fa-info-circle mr-2"></i>Information</h4>
+            <p>
+                Si vous importez un fichier ZIP contenant plusieurs fichiers, l'application recherchera automatiquement
+                les fichiers dont le nom contient "t_adresse".
+            </p>
+            <hr>
+            <p class="mb-0">
+                Le format des données doit respecter la structure de la table <code>t_adresse</code> du modèle GRACE THD.
+            </p>
+        </div>
+    {% endif %}
 
-        <form method="POST" enctype="multipart/form-data">
-            <div class="form-group">
-                <label for="file"><strong>Sélectionner un fichier</strong></label>
-                <div class="custom-file">
-                    <input type="file" class="custom-file-input" id="file" name="file" required>
-                    <label class="custom-file-label" for="file">Choisir un fichier...</label>
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="card-title mb-0"><i class="fas fa-upload mr-2"></i>Importation de fichier</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="file">Sélectionnez un fichier à importer :</label>
+                    <div class="custom-file">
+                        <input type="file" class="custom-file-input" id="file" name="file" required>
+                        <label class="custom-file-label" for="file">Choisir un fichier...</label>
+                    </div>
+                    <small class="form-text text-muted">Formats acceptés : CSV, SHP, GeoJSON, ZIP</small>
                 </div>
-                <small class="form-text text-muted">
-                    Formats acceptés : .csv, .shp, .geojson, .zip
-                </small>
-            </div>
-
-            <div class="text-center mt-4">
                 <button type="submit" class="btn btn-primary">
                     <i class="fas fa-upload mr-2"></i>Importer
                 </button>
-                <a href="{{ url_for('main.adresses') }}" class="btn btn-secondary ml-2">
-                    <i class="fas fa-arrow-left mr-2"></i>Retour
-                </a>
-            </div>
-        </form>
-    </div>
-</div>
-
-<div class="card mt-4">
-    <div class="card-header bg-secondary text-white">
-        <h5 class="mb-0">
-            <i class="fas fa-question-circle mr-2"></i>Aide
-        </h5>
-    </div>
-    <div class="card-body">
-        <h6>Format des fichiers attendu :</h6>
-        <ul>
-            <li><strong>CSV</strong> - Fichier avec séparateur point-virgule (;) contenant les colonnes nécessaires (ad_code, ad_nomvoie, etc.)</li>
-            <li><strong>SHP</strong> - Shapefile contenant des points avec les attributs requis</li>
-            <li><strong>GeoJSON</strong> - Fichier GeoJSON avec des objets de type Point</li>
-            <li><strong>ZIP</strong> - Archive contenant un shapefile complet (fichiers .shp, .dbf, .shx, .prj)</li>
-        </ul>
-        
-        <h6 class="mt-3">Validation des données :</h6>
-        <p>Lors de l'importation, les données seront validées selon les règles suivantes :</p>
-        <ul>
-            <li>Le code d'adresse (ad_code) est obligatoire et unique</li>
-            <li>Le code INSEE (ad_insee) doit être valide</li>
-            <li>Les coordonnées géographiques doivent être en projection WGS84 (EPSG:4326)</li>
-            <li>Les champs obligatoires doivent être renseignés</li>
-        </ul>
+                {% if entity_type == 'organisme' %}
+                    <a href="{{ url_for('main.organismes') }}" class="btn btn-secondary">Annuler</a>
+                {% else %}
+                    <a href="{{ url_for('main.adresses') }}" class="btn btn-secondary">Annuler</a>
+                {% endif %}
+            </form>
+        </div>
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    // Afficher le nom du fichier sélectionné dans l'input
-    $('.custom-file-input').on('change', function() {
-        var fileName = $(this).val().split('\\').pop();
-        $(this).next('.custom-file-label').html(fileName);
+    // Script pour afficher le nom du fichier sélectionné
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelector('.custom-file-input').addEventListener('change', function(e) {
+            var fileName = e.target.files[0].name;
+            var nextSibling = e.target.nextElementSibling;
+            nextSibling.innerText = fileName;
+        });
     });
 </script>
 {% endblock %}
