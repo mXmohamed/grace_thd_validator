@@ -33,36 +33,116 @@ class AdresseService:
                     with zipfile.ZipFile(file_path, 'r') as zip_ref:
                         zip_ref.extractall(temp_dir)
                     
-                    # Chercher un fichier SHP dans le dossier
-                    shp_files = [f for f in os.listdir(temp_dir) if f.lower().endswith('.shp')]
+                    # Chercher un fichier SHP dans le dossier (ignorer les fichiers auxiliaires)
+                    shp_files = [f for f in os.listdir(temp_dir) if f.lower().endswith('.shp') and 't_adresse' in f.lower()]
+                    csv_files = [f for f in os.listdir(temp_dir) if f.lower().endswith('.csv') and 't_adresse' in f.lower()]
+                    geojson_files = [f for f in os.listdir(temp_dir) if f.lower().endswith('.geojson') and 't_adresse' in f.lower()]
                     
-                    if not shp_files:
+                    if shp_files:
+                        # Utiliser le premier fichier SHP trouvé
+                        shp_path = os.path.join(temp_dir, shp_files[0])
+                        
+                        # Lire le fichier SHP
+                        gdf = gpd.read_file(shp_path)
+                        
+                        # Convertir à EPSG:4326 si nécessaire
+                        if gdf.crs and gdf.crs != "EPSG:4326":
+                            gdf = gdf.to_crs("EPSG:4326")
+                    
+                    elif csv_files:
+                        # Utiliser le premier fichier CSV trouvé
+                        csv_path = os.path.join(temp_dir, csv_files[0])
+                        
+                        # Lire le fichier CSV avec une gestion d'erreurs améliorée
+                        try:
+                            df = pd.read_csv(csv_path, 
+                                          sep=';',  # Utiliser le point-virgule comme séparateur
+                                          on_bad_lines='skip',  # Ignorer les lignes problématiques
+                                          dtype=str,  # Tout traiter comme des chaînes
+                                          encoding='utf-8-sig')  # Gérer les BOM
+                        except:
+                            # Fallback au cas où on_bad_lines n'est pas disponible (versions pandas plus anciennes)
+                            df = pd.read_csv(csv_path, 
+                                          sep=';', 
+                                          error_bad_lines=False, 
+                                          warn_bad_lines=True,
+                                          dtype=str,
+                                          encoding='utf-8-sig')
+                        
+                        # Vérifier si les colonnes de géométrie existent
+                        if 'longitude' in df.columns and 'latitude' in df.columns:
+                            # Convertir les colonnes en numérique
+                            df['longitude'] = pd.to_numeric(df['longitude'], errors='coerce')
+                            df['latitude'] = pd.to_numeric(df['latitude'], errors='coerce')
+                            
+                            # Créer un GeoDataFrame à partir des coordonnées
+                            gdf = gpd.GeoDataFrame(
+                                df, 
+                                geometry=gpd.points_from_xy(df.longitude, df.latitude),
+                                crs="EPSG:4326"
+                            )
+                        elif 'geom' in df.columns:
+                            # Filtrer les géométries valides
+                            df = df[df['geom'].notna()]
+                            try:
+                                # Convertir les géométries WKT en objets shapely
+                                df['geometry'] = df['geom'].apply(lambda x: wkt.loads(x) if isinstance(x, str) else None)
+                                # Filtrer les lignes avec des géométries valides
+                                df = df[df['geometry'].notna()]
+                                gdf = gpd.GeoDataFrame(df, geometry='geometry', crs="EPSG:4326")
+                            except Exception as e:
+                                return {
+                                    'success': False,
+                                    'message': f"Erreur lors de la conversion des géométries: {str(e)}"
+                                }
+                        else:
+                            return {
+                                'success': False,
+                                'message': "Le fichier CSV ne contient pas de colonnes de géométrie (longitude/latitude ou geom)"
+                            }
+                    
+                    elif geojson_files:
+                        # Utiliser le premier fichier GeoJSON trouvé
+                        geojson_path = os.path.join(temp_dir, geojson_files[0])
+                        gdf = gpd.read_file(geojson_path)
+                        
+                        # Convertir à EPSG:4326 si nécessaire
+                        if gdf.crs and gdf.crs != "EPSG:4326":
+                            gdf = gdf.to_crs("EPSG:4326")
+                    else:
                         return {
                             'success': False,
-                            'message': "Aucun fichier Shapefile (.shp) trouvé dans l'archive ZIP"
+                            'message': "Aucun fichier d'adresses valide trouvé dans l'archive ZIP"
                         }
-                    
-                    # Utiliser le premier fichier SHP trouvé
-                    shp_path = os.path.join(temp_dir, shp_files[0])
-                    
-                    # Lire le fichier SHP
-                    gdf = gpd.read_file(shp_path)
-                    
-                    # Convertir à EPSG:4326 si nécessaire
-                    if gdf.crs and gdf.crs != "EPSG:4326":
-                        gdf = gdf.to_crs("EPSG:4326")
                     
                 finally:
                     # Nettoyer le dossier temporaire
                     shutil.rmtree(temp_dir)
             
-            # Traiter les autres formats comme avant
+            # Traiter les autres formats
             elif file_ext == '.csv':
                 # Code pour les CSV
-                df = pd.read_csv(file_path)
+                try:
+                    df = pd.read_csv(file_path, 
+                                  sep=';',  # Utiliser le point-virgule comme séparateur
+                                  on_bad_lines='skip',  # Ignorer les lignes problématiques
+                                  dtype=str,  # Tout traiter comme des chaînes
+                                  encoding='utf-8-sig')  # Gérer les BOM
+                except:
+                    # Fallback au cas où on_bad_lines n'est pas disponible (versions pandas plus anciennes)
+                    df = pd.read_csv(file_path, 
+                                  sep=';', 
+                                  error_bad_lines=False, 
+                                  warn_bad_lines=True,
+                                  dtype=str,
+                                  encoding='utf-8-sig')
                 
                 # Vérifier si les colonnes de géométrie existent
                 if 'longitude' in df.columns and 'latitude' in df.columns:
+                    # Convertir les colonnes en numérique
+                    df['longitude'] = pd.to_numeric(df['longitude'], errors='coerce')
+                    df['latitude'] = pd.to_numeric(df['latitude'], errors='coerce')
+                    
                     # Créer un GeoDataFrame à partir des coordonnées
                     gdf = gpd.GeoDataFrame(
                         df, 
@@ -70,9 +150,19 @@ class AdresseService:
                         crs="EPSG:4326"
                     )
                 elif 'geom' in df.columns:
-                    # Convertir les géométries WKT en objets shapely
-                    df['geometry'] = df['geom'].apply(wkt.loads)
-                    gdf = gpd.GeoDataFrame(df, geometry='geometry', crs="EPSG:4326")
+                    # Filtrer les géométries valides
+                    df = df[df['geom'].notna()]
+                    try:
+                        # Convertir les géométries WKT en objets shapely
+                        df['geometry'] = df['geom'].apply(lambda x: wkt.loads(x) if isinstance(x, str) else None)
+                        # Filtrer les lignes avec des géométries valides
+                        df = df[df['geometry'].notna()]
+                        gdf = gpd.GeoDataFrame(df, geometry='geometry', crs="EPSG:4326")
+                    except Exception as e:
+                        return {
+                            'success': False,
+                            'message': f"Erreur lors de la conversion des géométries: {str(e)}"
+                        }
                 else:
                     return {
                         'success': False,
@@ -105,8 +195,20 @@ class AdresseService:
             # Préparation des données pour l'insertion
             adresses = []
             for _, row in gdf.iterrows():
-                adresse = AdresseService._create_adresse_from_row(row)
-                adresses.append(adresse)
+                try:
+                    adresse = AdresseService._create_adresse_from_row(row)
+                    adresses.append(adresse)
+                except Exception as e:
+                    # Ignorer les lignes qui posent problème
+                    continue
+            
+            # Vérifier si des adresses ont été extraites
+            if not adresses:
+                return {
+                    'success': False,
+                    'message': "Aucune adresse valide n'a été extraite du fichier",
+                    'errors': ["Format de données non conforme ou données invalides"]
+                }
             
             # Insertion en base de données
             try:
@@ -153,10 +255,21 @@ class AdresseService:
                 continue
                 
             # Pour les autres colonnes, vérifier si elles existent dans le DataFrame
-            attribute = column
-            if hasattr(row, attribute) or attribute in row:
-                value = row.get(attribute)
-                setattr(adresse, attribute, value)
+            try:
+                if hasattr(row, column):
+                    value = getattr(row, column)
+                elif column in row:
+                    value = row[column]
+                else:
+                    continue  # Colonne non trouvée, passer à la suivante
+                
+                if pd.isna(value):  # Vérifier si la valeur est NaN
+                    value = None
+                    
+                setattr(adresse, column, value)
+            except:
+                # En cas d'erreur, passer à la colonne suivante
+                continue
         
         return adresse
 
