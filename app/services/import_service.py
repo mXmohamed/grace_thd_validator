@@ -49,9 +49,18 @@ class ImportService:
                         file_path = os.path.join(root, file)
                         all_files.append(file_path)
                 
-                # Rechercher les fichiers pour chaque table
-                adresse_files = [f for f in all_files if 't_adresse' in f.lower()]
-                organisme_files = [f for f in all_files if 't_organisme' in f.lower()]
+                # Rechercher les fichiers pour chaque table en filtrant les extensions
+                adresse_files = [f for f in all_files if 't_adresse' in f.lower() and (
+                    f.lower().endswith('.shp') or 
+                    f.lower().endswith('.csv') or 
+                    f.lower().endswith('.geojson')
+                )]
+                
+                organisme_files = [f for f in all_files if 't_organisme' in f.lower() and (
+                    f.lower().endswith('.shp') or 
+                    f.lower().endswith('.csv') or 
+                    f.lower().endswith('.geojson')
+                )]
                 
                 # Traiter t_adresse
                 if adresse_files:
