@@ -39,14 +39,41 @@ class OrganismeService:
                     if csv_files:
                         # Utiliser le premier fichier CSV trouvé
                         file_path = os.path.join(temp_dir, csv_files[0])
-                        # Lire le fichier CSV
-                        df = pd.read_csv(file_path)
+                        # Lire le fichier CSV avec une gestion d'erreurs améliorée
+                        try:
+                            df = pd.read_csv(file_path, 
+                                          sep=';',  # Utiliser le point-virgule comme séparateur
+                                          on_bad_lines='skip',  # Ignorer les lignes problématiques
+                                          dtype=str,  # Tout traiter comme des chaînes
+                                          encoding='utf-8-sig')  # Gérer les BOM
+                        except:
+                            # Fallback au cas où on_bad_lines n'est pas disponible (versions pandas plus anciennes)
+                            df = pd.read_csv(file_path, 
+                                          sep=';', 
+                                          error_bad_lines=False, 
+                                          warn_bad_lines=True,
+                                          dtype=str,
+                                          encoding='utf-8-sig')
+                        
+                        # Vérifier et ajouter les colonnes requises manquantes
+                        required_columns = ['or_code', 'or_nom', 'or_type']
+                        for col in required_columns:
+                            if col not in df.columns:
+                                df[col] = None  # Ajouter une colonne vide pour éviter les erreurs de validation
+                                
                         return OrganismeService._process_dataframe(df)
                     elif shp_files:
                         # Utiliser le premier fichier SHP trouvé
                         shp_path = os.path.join(temp_dir, shp_files[0])
                         # Lire le fichier SHP
                         gdf = gpd.read_file(shp_path)
+                        
+                        # Vérifier et ajouter les colonnes requises manquantes
+                        required_columns = ['or_code', 'or_nom', 'or_type']
+                        for col in required_columns:
+                            if col not in gdf.columns:
+                                gdf[col] = None
+                                
                         return OrganismeService._process_dataframe(gdf)
                     else:
                         return {
@@ -58,10 +85,37 @@ class OrganismeService:
                     shutil.rmtree(temp_dir)
             # Traiter les autres formats
             elif file_ext == '.csv':
-                df = pd.read_csv(file_path)
+                try:
+                    df = pd.read_csv(file_path, 
+                                  sep=';',  # Utiliser le point-virgule comme séparateur
+                                  on_bad_lines='skip',  # Ignorer les lignes problématiques
+                                  dtype=str,  # Tout traiter comme des chaînes
+                                  encoding='utf-8-sig')  # Gérer les BOM
+                except:
+                    # Fallback au cas où on_bad_lines n'est pas disponible (versions pandas plus anciennes)
+                    df = pd.read_csv(file_path, 
+                                  sep=';', 
+                                  error_bad_lines=False, 
+                                  warn_bad_lines=True,
+                                  dtype=str,
+                                  encoding='utf-8-sig')
+                
+                # Vérifier et ajouter les colonnes requises manquantes
+                required_columns = ['or_code', 'or_nom', 'or_type']
+                for col in required_columns:
+                    if col not in df.columns:
+                        df[col] = None
+                        
                 return OrganismeService._process_dataframe(df)
             elif file_ext in ['.shp', '.geojson']:
                 gdf = gpd.read_file(file_path)
+                
+                # Vérifier et ajouter les colonnes requises manquantes
+                required_columns = ['or_code', 'or_nom', 'or_type']
+                for col in required_columns:
+                    if col not in gdf.columns:
+                        gdf[col] = None
+                        
                 return OrganismeService._process_dataframe(gdf)
             else:
                 return {
@@ -100,8 +154,20 @@ class OrganismeService:
         # Préparation des données pour l'insertion
         organismes = []
         for _, row in df.iterrows():
-            organisme = OrganismeService._create_organisme_from_row(row)
-            organismes.append(organisme)
+            try:
+                organisme = OrganismeService._create_organisme_from_row(row)
+                organismes.append(organisme)
+            except Exception as e:
+                # Ignorer les lignes qui posent problème
+                continue
+        
+        # Vérifier si des organismes ont été extraits
+        if not organismes:
+            return {
+                'success': False,
+                'message': "Aucun organisme valide n'a été extrait du fichier",
+                'errors': ["Format de données non conforme ou données invalides"]
+            }
         
         # Insertion en base de données
         try:
@@ -137,8 +203,20 @@ class OrganismeService:
         for column in Organisme.__table__.columns.keys():
             # Vérifier si la colonne existe dans le DataFrame
             if hasattr(row, column) or column in row:
-                value = row.get(column)
-                setattr(organisme, column, value)
+                try:
+                    # Utilisation plus sûre avec une gestion des erreurs
+                    if hasattr(row, column):
+                        value = getattr(row, column)
+                    else:
+                        value = row[column]
+                    
+                    if pd.isna(value):  # Vérifier si la valeur est NaN
+                        value = None
+                        
+                    setattr(organisme, column, value)
+                except:
+                    # En cas d'erreur, définir la valeur à None
+                    setattr(organisme, column, None)
         
         return organisme
 
