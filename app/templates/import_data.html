@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}Importation de données GRACE THD{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="fas fa-file-upload mr-2"></i> Importation de données GRACE THD</h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info mb-4">
+                        <h5 class="alert-heading"><i class="fas fa-info-circle mr-2"></i>Instructions</h5>
+                        <p>
+                            Importez un fichier ZIP contenant les données GRACE THD à valider. 
+                            L'application détectera automatiquement les différentes tables et effectuera 
+                            les contrôles de validité pour chaque table.
+                        </p>
+                        <hr>
+                        <p class="mb-0">
+                            <strong>Tables actuellement supportées :</strong> t_adresse, t_organisme
+                        </p>
+                    </div>
+                    
+                    <form method="POST" enctype="multipart/form-data" class="mb-4">
+                        <div class="form-group">
+                            <label for="file" class="font-weight-bold">Sélectionnez un fichier ZIP à importer :</label>
+                            <div class="custom-file">
+                                <input type="file" class="custom-file-input" id="file" name="file" required>
+                                <label class="custom-file-label" for="file">Choisir un fichier...</label>
+                            </div>
+                            <small class="form-text text-muted">Format accepté : ZIP</small>
+                        </div>
+                        
+                        <div class="text-center">
+                            <button type="submit" class="btn btn-primary btn-lg px-5">
+                                <i class="fas fa-upload mr-2"></i> Importer et valider
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <div class="card mt-4">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0"><i class="fas fa-info-circle mr-2"></i> Exemple de structure du fichier ZIP</h5>
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-group">
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <strong>filecopy/t_adresse.shp</strong>
+                                    <span class="badge badge-primary badge-pill">Shapefile</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <strong>filecopy/t_adresse.dbf</strong>
+                                    <span class="badge badge-primary badge-pill">Données</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <strong>filecopy/t_adresse.shx</strong>
+                                    <span class="badge badge-primary badge-pill">Index</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <strong>filecopy/t_adresse.prj</strong>
+                                    <span class="badge badge-primary badge-pill">Projection</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <strong>filecopy/t_organisme.csv</strong>
+                                    <span class="badge badge-success badge-pill">CSV</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center text-muted">
+                                    <strong>filecopy/autres_tables.csv</strong>
+                                    <span class="badge badge-secondary badge-pill">Support à venir</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Script pour afficher le nom du fichier sélectionné
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelector('.custom-file-input').addEventListener('change', function(e) {
+            var fileName = e.target.files[0].name;
+            var nextSibling = e.target.nextElementSibling;
+            nextSibling.innerText = fileName;
+        });
+    });
+</script>
+{% endblock %}
